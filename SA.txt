@@ -1,0 +1,56 @@
+
+2. 먼지탐지가 벽보다 우선
+컨트롤은 fsm으로
+
+LV0
+Front Sensor Input 
+Left Sensor Input
+Right Sensor Input
+Dust Sensor Input
+Direction
+Clean
+
+LV1
+Front Sensor Input 
+Left Sensor Input
+Right Sensor Input
+Dust Sensor Input
+Direction 
+Clean
+
+Obstacle & Dust Location 
+
+LV2
+Front Sensor Input
+Left Sensor Input
+Right Sensor Input
+Dust Sensor Input
+
+Front Obstacle RVC 앞쪽에 장애물이 있는지 여부를 알려주는 논리값 true/false
+Left Obstacle RVC 왼쪽에 장애물이 있는지 여부를 알려주는 논리값 true/false
+Right Obstacle RVC 오른쪽에 장애물이 있는지 여부를 알려주는 논리값 true/false
+Dust Existence 바닥에 먼지가 있는지 여부를 알려주는 논리값 true/false
+
+Obstacle Location RVC를 기준으로 장애물이 있는 위치를 알려주는 논리타입 배열 길이 3의 논리타입 배열
+Dust Existance 
+
+Motor Command 모터가 해야할 동작을 알려주는 데이터 forward/left/right/backward/stop
+Cleaner Command 클리너가 해야할 동작을 알려주는 데이터 on/off/up
+
+Direction
+Clean
+
+LV3
+Obstacle Location F/L/R
+
+Dust Location
+
+Moter Command
+Cleaner Command
+
+-tick control flow니까 점선화살표로 바꾸기
+-LV1에 tick 표기 안함
+-Obstacle & Dust Location, Obstacle Location, Dust Existance 용어통일
+-FSM의 상태와 Command(interface에 전달하는 data)값을 확실히 구분하기(상태 ex) move forward, command ex) on/off/up, forward/stop/...)->clean 관련해서도 상태가 필요하지 않을까(Inconsistent design of Cleaner Interface with Motor Interface랑도 관련 있을듯)
+-강의자료에서 left sensor interface의 process specification에서는 left sensor input이 아날로그값이고 그게 변환돼서 디지털값인 left obstacle이라 되어있음 하지만 data dictionary에서는 left sensor input이 true/false로 돼있음 통일 필요
+-강의자료 Data Dictionary에서 front sensor input의 description이 detects obstacles in front of the RVC인데 이거는 input이 아니라 front sensor 그 자체를 설명한거라 생각, description이 input에 맞게 바뀌어야한다고 생각듦	
