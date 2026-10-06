@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="RVC Controller/RVC Controller.vcxproj" />
+  <Project Path="RVC Controller/RVC Controller.vcxproj" Id="80cb2a36-5dfc-4cd0-9edc-e82320baa015" />
 </Solution>

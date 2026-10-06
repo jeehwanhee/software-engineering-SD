@@ -76,90 +76,27 @@ void controller(void) {
 	tick1 = 1;
 
 	while (1) {
-		obstacle_location = determine_obstacle_location();
-		f = obstacle_location[0];
-		l = obstacle_location[1];
-		r = obstacle_location[2];
-		free(obstacle_location);
-		dust_existence = determine_dust_existence();
-		
-		switch (cur_state) {
-		case MOVE_FORWARD:
-			if (dust_existence) {
-				cur_state = POWER_UP_STATE;
-			}
-			else if (!f) {
-				on_off_power_up(ON);
-				move_forward(ENABLE);
-			}
-			else if (f && !r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				cur_state = TURN_RIGHT;
-			}
-			else if (f && !l && r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				cur_state = TURN_LEFT;
-			}
-			else if (f && l && r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				cur_state = MOVE_BACKWARD;
-			}
-			break;
-		case TURN_RIGHT:
-			if (!locked) {
-				locked = TRUE;
-				start5 = clock();
-				tick5 = 0;
-				turn_right(TRIGGER);
-			}
-			else if(locked&&tick5>=5) {
-				locked = FALSE;
-				cur_state = MOVE_FORWARD;
-			}
-			tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
-			break;
-		case TURN_LEFT:
-			if (!locked) {
-				locked = TRUE;
-				start5 = clock();
-				tick5 = 0;
-				turn_left(TRIGGER);
-			}
-			else if (locked && tick5 >= 5) {
-				locked = FALSE;
-				cur_state = MOVE_FORWARD;
-			}
-			tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
-			break;
-		case MOVE_BACKWARD:
-			if (!r) {
-				move_backward(DISABLE);
-				cur_state = TURN_RIGHT;
-			}
-			else if (!l && r) {
-				move_backward(DISABLE);
-				cur_state = TURN_LEFT;
-			}
-			else if (l && r) {
-				move_backward(ENABLE);
-			}
-			break;
-		case POWER_UP_STATE:
-			if (!locked) {
-				locked = TRUE;
-				start5 = clock();
-				tick5 = 0;
-				on_off_power_up(POWER_UP_COMMAND);
-			}
-			else if (locked && tick5 >= 5) {
-				locked = FALSE;
-				if (!f) {
+		if(tick1>=1){
+			start1 = clock();
+			tick1 = 0;
+
+			obstacle_location = determine_obstacle_location();
+			f = obstacle_location[0];
+			l = obstacle_location[1];
+			r = obstacle_location[2];
+			free(obstacle_location);
+			dust_existence = determine_dust_existence();
+
+			switch (cur_state) {
+			case MOVE_FORWARD:
+				if (dust_existence) {
+					cur_state = POWER_UP_STATE;
+					start5 = clock();
+					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+				}
+				else if (!f) {
 					on_off_power_up(ON);
 					move_forward(ENABLE);
-					cur_state = MOVE_FORWARD;
 				}
 				else if (f && !r) {
 					move_forward(DISABLE);
@@ -176,19 +113,85 @@ void controller(void) {
 					on_off_power_up(OFF);
 					cur_state = MOVE_BACKWARD;
 				}
+				break;
+			case TURN_RIGHT:
+				if (!locked) {
+					locked = TRUE;
+					start5 = clock();
+					tick5 = 0;
+					turn_right(TRIGGER);
+				}
+				else if (locked && tick5 >= 5) {
+					locked = FALSE;
+					cur_state = MOVE_FORWARD;
+				}
+				tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+				break;
+			case TURN_LEFT:
+				if (!locked) {
+					locked = TRUE;
+					start5 = clock();
+					tick5 = 0;
+					turn_left(TRIGGER);
+				}
+				else if (locked && tick5 >= 5) {
+					locked = FALSE;
+					cur_state = MOVE_FORWARD;
+				}
+				tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+				break;
+			case MOVE_BACKWARD:
+				if (!r) {
+					move_backward(DISABLE);
+					cur_state = TURN_RIGHT;
+				}
+				else if (!l && r) {
+					move_backward(DISABLE);
+					cur_state = TURN_LEFT;
+				}
+				else if (l && r) {
+					move_backward(ENABLE);
+				}
+				break;
+			case POWER_UP_STATE:
+				if (dust_existence) {
+					on_off_power_up(POWER_UP_COMMAND);
+				}
+				else if (!f) {
+					if (tick5 < 5) {
+						on_off_power_up(POWER_UP_COMMAND);
+					}
+					else {
+						on_off_power_up(ON);
+						cur_state = MOVE_FORWARD;
+					}
+					move_forward(ENABLE);
+				}
+				else if (f && !r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					cur_state = TURN_RIGHT;
+				}
+				else if (f && !l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					cur_state = TURN_LEFT;
+				}
+				else if (f && l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					cur_state = MOVE_BACKWARD;
+				}
+				tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+				break;
+			default:
+				cur_state = MOVE_FORWARD;
 			}
-			tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
-			break;
-		default:
-			cur_state = MOVE_FORWARD;
-		}
-
-		if(tick1>=1){
-			start1 = clock();
-			tick1 = 0;
 		}
 		tick1 = (int)((double)(clock() - start1) / CLOCKS_PER_SEC / TICK);
 	}
+
+	
 }
 
 char* determine_obstacle_location() {
@@ -293,7 +296,10 @@ void move_backward(enable_signal signal) {
 }
 
 void motor_interface(direction motor_command) {
-	if (tick1 >= 1) {
+	static direction last = -1;
+
+	if (last!=motor_command) {
+		last = motor_command;
 		switch (motor_command) {
 		case FORWARD:
 			run_motor(1, 1);//왼쪽바퀴방향, 오른쪽바퀴방향
@@ -328,7 +334,10 @@ void on_off_power_up(clean cleaner_command) {
 }
 
 void cleaner_interface(clean cleaner_command) {
-	if (tick1 >= 1) {
+	static clean last=-1;
+
+	if (last != cleaner_command) {
+		last = cleaner_command;
 		switch (cleaner_command) {
 		case OFF:
 			run_cleaner(0);

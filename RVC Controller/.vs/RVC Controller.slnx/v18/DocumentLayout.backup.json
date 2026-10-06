@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\jsnam\\Desktop\\\uD559\uAD50\\\uAD50\uACFC\\\uC804\uC120\\\uC18C\uACF5\\\uACFC\uC81C\\SASD\\RVC Controller\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{80CB2A36-5DFC-4CD0-9EDC-E82320BAA015}|RVC Controller\\RVC Controller.vcxproj|C:\\Users\\jsnam\\Desktop\\\uD559\uAD50\\\uAD50\uACFC\\\uC804\uC120\\\uC18C\uACF5\\\uACFC\uC81C\\SASD\\RVC Controller\\RVC Controller\\RVC Controller.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{80CB2A36-5DFC-4CD0-9EDC-E82320BAA015}|RVC Controller\\RVC Controller.vcxproj|solutionrelative:RVC Controller\\RVC Controller.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "RVC Controller.c",
+              "DocumentMoniker": "C:\\Users\\jsnam\\Desktop\\\uD559\uAD50\\\uAD50\uACFC\\\uC804\uC120\\\uC18C\uACF5\\\uACFC\uC81C\\SASD\\RVC Controller\\RVC Controller\\RVC Controller.c",
+              "RelativeDocumentMoniker": "RVC Controller\\RVC Controller.c",
+              "ToolTip": "C:\\Users\\jsnam\\Desktop\\\uD559\uAD50\\\uAD50\uACFC\\\uC804\uC120\\\uC18C\uACF5\\\uACFC\uC81C\\SASD\\RVC Controller\\RVC Controller\\RVC Controller.c",
+              "RelativeToolTip": "RVC Controller\\RVC Controller.c",
+              "ViewState": "AgIAALMAAAAAAAAAAAAAwMUAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2026-10-05T07:24:26.148Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
