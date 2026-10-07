@@ -1,13 +1,14 @@
-#define TICK 0.2
+#define TICK 1
 #define TRUE 1
 #define FALSE 0
 
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <math.h>
 
-clock_t start1,start5;
-int tick1, tick5;
+clock_t tick_start;
+int tick, tick_5;
 
 typedef enum {
 	DISABLE,
@@ -43,23 +44,17 @@ typedef enum {
 void controller(void);
 char* determine_obstacle_location(void);
 char front_sensor_interface(void);
-char read_front_sensor(void);
 char left_sensor_interface(void);
-char read_left_sensor(void);
 char right_sensor_interface(void);
-char read_right_sensor(void);
 char determine_dust_existence(void);
 char dust_sensor_interface(void);
-char read_dust_sensor(void);
 void move_forward(enable_signal signal);
 void turn_left(trigger_signal signal);
 void turn_right(trigger_signal signal);
 void move_backward(enable_signal signal);
 void motor_interface(direction motor_command);
-void run_motor(int left, int right);
 void on_off_power_up(clean cleaner_command);
 void cleaner_interface(clean cleaner_command);
-void run_cleaner(int level);
 
 int main(void) {
 	controller();
@@ -72,12 +67,12 @@ void controller(void) {
 	char f, l, r;
 	char dust_existence;
 	state last_state=MOVE_FORWARD;
-	tick1 = 1;
+	tick = 1;
 
 	while (1) {
-		if(tick1>=1){
-			start1 = clock();
-			tick1 = 0;
+		if(tick>=1){
+			tick_start = clock();
+			tick = 0;
 
 			obstacle_location = determine_obstacle_location();
 			f = obstacle_location[0];
@@ -90,8 +85,8 @@ void controller(void) {
 			case MOVE_FORWARD:
 				if (dust_existence) {
 					on_off_power_up(POWER_UP_COMMAND);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = POWER_UP_STATE;
 					if (!f) {
 						move_forward(ENABLE);
@@ -100,16 +95,16 @@ void controller(void) {
 						move_forward(DISABLE);
 						on_off_power_up(OFF);
 						turn_right(TRIGGER);
-						start5 = clock();
-						tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+						tick_5 = 0;
+						printf("tick %d\n", tick_5 + 1);
 						last_state = TURN_RIGHT;
 					}
 					else if (f && !l && r) {
 						move_forward(DISABLE);
 						on_off_power_up(OFF);
 						turn_left(TRIGGER);
-						start5 = clock();
-						tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+						tick_5 = 0;
+						printf("tick %d\n", tick_5 + 1);
 						last_state = TURN_LEFT;
 					}
 					else if (f && l && r) {
@@ -127,16 +122,16 @@ void controller(void) {
 					move_forward(DISABLE);
 					on_off_power_up(OFF);
 					turn_right(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_RIGHT;
 				}
 				else if (f && !l && r) {
 					move_forward(DISABLE);
 					on_off_power_up(OFF);
 					turn_left(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_LEFT;
 				}
 				else if (f && l && r) {
@@ -148,8 +143,9 @@ void controller(void) {
 				break;
 			case TURN_RIGHT:
 			case TURN_LEFT:
-				tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
-				if (tick5 >= 5) {
+				tick_5++;
+				printf("tick %d\n", tick_5 + 1);
+				if (tick_5 >= 4) {
 					move_forward(ENABLE);
 					on_off_power_up(ON);
 					last_state = MOVE_FORWARD;
@@ -159,15 +155,15 @@ void controller(void) {
 				if (!r) {
 					move_backward(DISABLE);
 					turn_right(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_RIGHT;
 				}
 				else if (!l && r) {
 					move_backward(DISABLE);
 					turn_left(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_LEFT;
 				}
 				else if (l && r) {
@@ -176,10 +172,19 @@ void controller(void) {
 				break;
 			case POWER_UP_STATE:
 				if (!f) {
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
-					if(tick5>=5){
-						on_off_power_up(ON);
-						last_state = MOVE_FORWARD;
+					tick_5++;
+					printf("tick %d\n", tick_5 + 1);
+					if (tick_5 >= 4) {
+						if (dust_existence) {
+							tick_5 = 0;
+							printf("tick %d\n", tick_5 + 1);
+							on_off_power_up(POWER_UP_COMMAND);
+							last_state = POWER_UP_STATE;
+						}
+						else {
+							on_off_power_up(ON);
+							last_state = MOVE_FORWARD;
+						}
 					}
 					move_forward(ENABLE);
 				}
@@ -187,16 +192,16 @@ void controller(void) {
 					move_forward(DISABLE);
 					on_off_power_up(OFF);
 					turn_right(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_RIGHT;
 				}
 				else if (f && !l && r) {
 					move_forward(DISABLE);
 					on_off_power_up(OFF);
 					turn_left(TRIGGER);
-					start5 = clock();
-					tick5 = (int)((double)(clock() - start5) / CLOCKS_PER_SEC / TICK);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
 					last_state = TURN_LEFT;
 				}
 				else if (f && l && r) {
@@ -210,7 +215,7 @@ void controller(void) {
 				last_state = MOVE_FORWARD;
 			}
 		}
-		tick1 = (int)((double)(clock() - start1) / CLOCKS_PER_SEC / TICK);
+		tick = (int)((double)(clock() - tick_start) / CLOCKS_PER_SEC / TICK);
 	}
 }
 
@@ -224,33 +229,27 @@ char* determine_obstacle_location() {
 }
 
 char front_sensor_interface(void) {
-	char front_sensor_input = read_front_sensor();
+	char front_sensor_input = 1;
+
+	printf("Front Sensor Input: %d\n", front_sensor_input);
 
 	return front_sensor_input == 1 ? 1 : 0;
 }
 
-char read_front_sensor(void) {
-	return 0;
-}
-
 char left_sensor_interface(void) {
-	char left_sensor_input = read_left_sensor();
+	char left_sensor_input = 0;
+
+	printf("Left Sensor Input: %d\n", left_sensor_input);
 
 	return left_sensor_input == 1 ? 1 : 0;
 }
 
-char read_left_sensor(void) {
-	return 0;
-}
-
 char right_sensor_interface(void) {
-	char right_sensor_input = read_right_sensor();
+	char right_sensor_input = 1;
+
+	printf("Right sensor input: %d\n", right_sensor_input);
 
 	return right_sensor_input == 1 ? 1 : 0;
-}
-
-char read_right_sensor(void) {
-	return 0;
 }
 
 char determine_dust_existence(void) {
@@ -260,17 +259,11 @@ char determine_dust_existence(void) {
 }
 
 char dust_sensor_interface(void) {
-	static char dust_sensor_input = 0;
+	char dust_sensor_input = 0;
 
-	if (tick1 >= 1) {
-		dust_sensor_input = read_dust_sensor();
-	}
+	printf("Dust Sensor Input: %d\n", dust_sensor_input);
 
 	return dust_sensor_input == 1 ? 1 : 0;
-}
-
-char read_dust_sensor(void) {
-	return 0;
 }
 
 void move_forward(enable_signal signal) {
@@ -306,33 +299,23 @@ void move_backward(enable_signal signal) {
 }
 
 void motor_interface(direction motor_command) {
-	static direction last = -1;
 
-	if (last!=motor_command) {
-		last = motor_command;
-		switch (motor_command) {
-		case FORWARD:
-			run_motor(1, 1);//왼쪽바퀴방향, 오른쪽바퀴방향
-			break;
-		case RIGHT:
-			run_motor(1, -1);
-			break;
-		case LEFT:
-			run_motor(-1, 1);
-			break;
-		case BACKWARD:
-			run_motor(-1, -1);
-			break;
-		default:
-			run_motor(1, 1);
-		}
+	switch (motor_command) {
+	case FORWARD:
+		printf("FORWARD\n");
+		break;
+	case RIGHT:
+		printf("RIGHT\n");
+		break;
+	case LEFT:
+		printf("LEFT\n");
+		break;
+	case BACKWARD:
+		printf("BACKWARD\n");
+		break;
+	default:
+		printf("WRONG COMMAND\n");
 	}
-
-	return;
-}
-
-void run_motor(int left, int right) {
-	printf("run_motor %d %d\n", left, right);
 
 	return;
 }
@@ -344,28 +327,19 @@ void on_off_power_up(clean cleaner_command) {
 }
 
 void cleaner_interface(clean cleaner_command) {
-	static clean last=-1;
-
-	if (last != cleaner_command) {
-		last = cleaner_command;
-		switch (cleaner_command) {
-		case OFF:
-			run_cleaner(0);
-			break;
-		case ON:
-			run_cleaner(1);
-			break;
-		case POWER_UP_COMMAND:
-			run_cleaner(2);
-			break;
-		default:
-			run_cleaner(0);
-		}
+	switch (cleaner_command) {
+	case OFF:
+		printf("OFF\n");
+		break;
+	case ON:
+		printf("ON\n");
+		break;
+	case POWER_UP_COMMAND:
+		printf("POWER UP\n");
+		break;
+	default:
+		printf("WRONG COMMAND\n");
 	}
 
 	return;
-}
-
-void run_cleaner(int level) {
-	printf("run_cleaner %d\n",level);
 }
