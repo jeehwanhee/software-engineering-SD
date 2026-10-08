@@ -10,6 +10,12 @@
 clock_t tick_start;
 int tick, tick_5;
 
+/* 테스트에서는 실행 전에 센서 입력값을 바꿀 수 있다. */
+int front_sensor_input = 1;
+int left_sensor_input = 0;
+int right_sensor_input = 1;
+int dust_sensor_input = 0;
+
 typedef enum {
 	DISABLE,
 	ENABLE
@@ -41,7 +47,8 @@ typedef enum {
 	POWER_UP_STATE
 }state;
 
-void controller(void);
+void controller(state initial_state);
+state controller_step(state current_state);
 char* determine_obstacle_location(void);
 char front_sensor_interface(void);
 char left_sensor_interface(void);
@@ -57,166 +64,167 @@ void on_off_power_up(clean cleaner_command);
 void cleaner_interface(clean cleaner_command);
 
 int main(void) {
-	controller();
+	controller(MOVE_FORWARD);
 
 	return 0;
 }
 
-void controller(void) {
-	char* obstacle_location;//함수 내부에서 호출한 하위 함수로부터 입력값을 받아오는것이므로 입력변수는 함수내부에 선언
-	char f, l, r;
-	char dust_existence;
-	state last_state=MOVE_FORWARD;
+void controller(state initial_state) {
+	state last_state = initial_state;
 	tick = 1;
 
 	while (1) {
-		if(tick>=1){
+		if (tick >= 1) {
 			tick_start = clock();
 			tick = 0;
-
-			obstacle_location = determine_obstacle_location();
-			f = obstacle_location[0];
-			l = obstacle_location[1];
-			r = obstacle_location[2];
-			free(obstacle_location);
-			dust_existence = determine_dust_existence();
-
-			switch (last_state) {
-			case MOVE_FORWARD:
-				if (dust_existence) {
-					on_off_power_up(POWER_UP_COMMAND);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = POWER_UP_STATE;
-					if (!f) {
-						move_forward(ENABLE);
-					}
-					else if (f && !r) {
-						move_forward(DISABLE);
-						on_off_power_up(OFF);
-						turn_right(TRIGGER);
-						tick_5 = 0;
-						printf("tick %d\n", tick_5 + 1);
-						last_state = TURN_RIGHT;
-					}
-					else if (f && !l && r) {
-						move_forward(DISABLE);
-						on_off_power_up(OFF);
-						turn_left(TRIGGER);
-						tick_5 = 0;
-						printf("tick %d\n", tick_5 + 1);
-						last_state = TURN_LEFT;
-					}
-					else if (f && l && r) {
-						move_forward(DISABLE);
-						on_off_power_up(OFF);
-						move_backward(ENABLE);
-						last_state = MOVE_BACKWARD;
-					}
-				}
-				else if (!f) {
-					on_off_power_up(ON);
-					move_forward(ENABLE);
-				}
-				else if (f && !r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					turn_right(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_RIGHT;
-				}
-				else if (f && !l && r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					turn_left(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_LEFT;
-				}
-				else if (f && l && r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					move_backward(ENABLE);
-					last_state = MOVE_BACKWARD;
-				}
-				break;
-			case TURN_RIGHT:
-			case TURN_LEFT:
-				tick_5++;
-				printf("tick %d\n", tick_5 + 1);
-				if (tick_5 >= 4) {
-					move_forward(ENABLE);
-					on_off_power_up(ON);
-					last_state = MOVE_FORWARD;
-				}
-				break;
-			case MOVE_BACKWARD:
-				if (!r) {
-					move_backward(DISABLE);
-					turn_right(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_RIGHT;
-				}
-				else if (!l && r) {
-					move_backward(DISABLE);
-					turn_left(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_LEFT;
-				}
-				else if (l && r) {
-					move_backward(ENABLE);
-				}
-				break;
-			case POWER_UP_STATE:
-				if (!f) {
-					tick_5++;
-					printf("tick %d\n", tick_5 + 1);
-					if (tick_5 >= 4) {
-						if (dust_existence) {
-							tick_5 = 0;
-							printf("tick %d\n", tick_5 + 1);
-							on_off_power_up(POWER_UP_COMMAND);
-							last_state = POWER_UP_STATE;
-						}
-						else {
-							on_off_power_up(ON);
-							last_state = MOVE_FORWARD;
-						}
-					}
-					move_forward(ENABLE);
-				}
-				else if (f && !r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					turn_right(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_RIGHT;
-				}
-				else if (f && !l && r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					turn_left(TRIGGER);
-					tick_5 = 0;
-					printf("tick %d\n", tick_5 + 1);
-					last_state = TURN_LEFT;
-				}
-				else if (f && l && r) {
-					move_forward(DISABLE);
-					on_off_power_up(OFF);
-					move_backward(ENABLE);
-					last_state = MOVE_BACKWARD;
-				}
-				break;
-			default:
-				last_state = MOVE_FORWARD;
-			}
+			last_state = controller_step(last_state);
 		}
 		tick = (int)((double)(clock() - tick_start) / CLOCKS_PER_SEC / TICK);
 	}
+}
+
+/* 센서 입력으로 한 tick을 처리하고, 처리 후 상태를 반환한다. */
+state controller_step(state last_state) {
+	char* obstacle_location;
+	char f, l, r;
+	char dust_existence;
+
+	obstacle_location = determine_obstacle_location();
+	f = obstacle_location[0];
+	l = obstacle_location[1];
+	r = obstacle_location[2];
+	free(obstacle_location);
+	dust_existence = determine_dust_existence();
+
+	switch (last_state) {
+	case MOVE_FORWARD:
+		if (dust_existence) {
+			on_off_power_up(POWER_UP_COMMAND);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = POWER_UP_STATE;
+			if (!f) {
+				move_forward(ENABLE);
+			}
+			else if (f && !r) {
+				move_forward(DISABLE);
+				on_off_power_up(OFF);
+				turn_right(TRIGGER);
+				tick_5 = 0;
+				printf("tick %d\n", tick_5 + 1);
+				last_state = TURN_RIGHT;
+			}
+			else if (f && !l && r) {
+				move_forward(DISABLE);
+				on_off_power_up(OFF);
+				turn_left(TRIGGER);
+				tick_5 = 0;
+				printf("tick %d\n", tick_5 + 1);
+				last_state = TURN_LEFT;
+			}
+			else if (f && l && r) {
+				move_forward(DISABLE);
+				on_off_power_up(OFF);
+				move_backward(ENABLE);
+				last_state = MOVE_BACKWARD;
+			}
+		}
+		else if (!f) {
+			on_off_power_up(ON);
+			move_forward(ENABLE);
+		}
+		else if (f && !r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			turn_right(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_RIGHT;
+		}
+		else if (f && !l && r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			turn_left(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_LEFT;
+		}
+		else if (f && l && r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			move_backward(ENABLE);
+			last_state = MOVE_BACKWARD;
+		}
+		break;
+	case TURN_RIGHT:
+	case TURN_LEFT:
+		tick_5++;
+		printf("tick %d\n", tick_5 + 1);
+		if (tick_5 >= 4) {
+			tick_5 = 0;
+			move_forward(ENABLE);
+			on_off_power_up(ON);
+			last_state = MOVE_FORWARD;
+		}
+		break;
+	case MOVE_BACKWARD:
+		if (!r) {
+			move_backward(DISABLE);
+			turn_right(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_RIGHT;
+		}
+		else if (!l && r) {
+			move_backward(DISABLE);
+			turn_left(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_LEFT;
+		}
+		else if (l && r) {
+			move_backward(ENABLE);
+		}
+		break;
+	case POWER_UP_STATE:
+		if (!f) {
+			tick_5++;
+			printf("tick %d\n", tick_5 + 1);
+			if (tick_5 >= 4) {
+				tick_5 = 0;
+				on_off_power_up(ON);
+				last_state = MOVE_FORWARD;
+			}
+			move_forward(ENABLE);
+		}
+		else if (f && !r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			turn_right(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_RIGHT;
+		}
+		else if (f && !l && r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			turn_left(TRIGGER);
+			tick_5 = 0;
+			printf("tick %d\n", tick_5 + 1);
+			last_state = TURN_LEFT;
+		}
+		else if (f && l && r) {
+			move_forward(DISABLE);
+			on_off_power_up(OFF);
+			move_backward(ENABLE);
+			last_state = MOVE_BACKWARD;
+		}
+		break;
+	default:
+		last_state = MOVE_FORWARD;
+	}
+
+	return last_state;
 }
 
 char* determine_obstacle_location() {
@@ -229,24 +237,18 @@ char* determine_obstacle_location() {
 }
 
 char front_sensor_interface(void) {
-	char front_sensor_input = 1;
-
 	printf("Front Sensor Input: %d\n", front_sensor_input);
 
 	return front_sensor_input == 1 ? 1 : 0;
 }
 
 char left_sensor_interface(void) {
-	char left_sensor_input = 0;
-
 	printf("Left Sensor Input: %d\n", left_sensor_input);
 
 	return left_sensor_input == 1 ? 1 : 0;
 }
 
 char right_sensor_interface(void) {
-	char right_sensor_input = 1;
-
 	printf("Right sensor input: %d\n", right_sensor_input);
 
 	return right_sensor_input == 1 ? 1 : 0;
@@ -259,8 +261,6 @@ char determine_dust_existence(void) {
 }
 
 char dust_sensor_interface(void) {
-	char dust_sensor_input = 0;
-
 	printf("Dust Sensor Input: %d\n", dust_sensor_input);
 
 	return dust_sensor_input == 1 ? 1 : 0;
