@@ -175,16 +175,8 @@ void controller(void) {
 					tick_5++;
 					printf("tick %d\n", tick_5 + 1);
 					if (tick_5 >= 4) {
-						if (dust_existence) {
-							tick_5 = 0;
-							printf("tick %d\n", tick_5 + 1);
-							on_off_power_up(POWER_UP_COMMAND);
-							last_state = POWER_UP_STATE;
-						}
-						else {
-							on_off_power_up(ON);
-							last_state = MOVE_FORWARD;
-						}
+						on_off_power_up(ON);
+						last_state = MOVE_FORWARD;
 					}
 					move_forward(ENABLE);
 				}
@@ -229,7 +221,7 @@ char* determine_obstacle_location() {
 }
 
 char front_sensor_interface(void) {
-	char front_sensor_input = 1;
+	char front_sensor_input = 0;
 
 	printf("Front Sensor Input: %d\n", front_sensor_input);
 
@@ -245,7 +237,7 @@ char left_sensor_interface(void) {
 }
 
 char right_sensor_interface(void) {
-	char right_sensor_input = 1;
+	char right_sensor_input = 0;
 
 	printf("Right sensor input: %d\n", right_sensor_input);
 
@@ -259,7 +251,7 @@ char determine_dust_existence(void) {
 }
 
 char dust_sensor_interface(void) {
-	char dust_sensor_input = 0;
+	char dust_sensor_input = 1;
 
 	printf("Dust Sensor Input: %d\n", dust_sensor_input);
 
