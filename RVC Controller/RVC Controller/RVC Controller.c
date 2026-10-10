@@ -48,7 +48,6 @@ typedef enum {
 }state;
 
 void controller(state initial_state);
-state controller_step(state current_state);
 char* determine_obstacle_location(void);
 char front_sensor_interface(void);
 char left_sensor_interface(void);
@@ -71,160 +70,153 @@ int main(void) {
 
 void controller(state initial_state) {
 	state last_state = initial_state;
+	char* obstacle_location;
+	char f, l, r;
+	char dust_existence;
 	tick = 1;
 
 	while (1) {
 		if (tick >= 1) {
 			tick_start = clock();
 			tick = 0;
-			last_state = controller_step(last_state);
+
+			obstacle_location = determine_obstacle_location();
+			f = obstacle_location[0];
+			l = obstacle_location[1];
+			r = obstacle_location[2];
+			free(obstacle_location);
+			dust_existence = determine_dust_existence();
+
+			switch (last_state) {
+			case MOVE_FORWARD:
+				if (dust_existence) {
+					on_off_power_up(POWER_UP_COMMAND);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = POWER_UP_STATE;
+					if (!f) {
+						move_forward(ENABLE);
+					}
+					else if (f && !r) {
+						move_forward(DISABLE);
+						on_off_power_up(OFF);
+						turn_right(TRIGGER);
+						tick_5 = 0;
+						printf("tick %d\n", tick_5 + 1);
+						last_state = TURN_RIGHT;
+					}
+					else if (f && !l && r) {
+						move_forward(DISABLE);
+						on_off_power_up(OFF);
+						turn_left(TRIGGER);
+						tick_5 = 0;
+						printf("tick %d\n", tick_5 + 1);
+						last_state = TURN_LEFT;
+					}
+					else if (f && l && r) {
+						move_forward(DISABLE);
+						on_off_power_up(OFF);
+						move_backward(ENABLE);
+						last_state = MOVE_BACKWARD;
+					}
+				}
+				else if (!f) {
+					on_off_power_up(ON);
+					move_forward(ENABLE);
+				}
+				else if (f && !r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					turn_right(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_RIGHT;
+				}
+				else if (f && !l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					turn_left(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_LEFT;
+				}
+				else if (f && l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					move_backward(ENABLE);
+					last_state = MOVE_BACKWARD;
+				}
+				break;
+			case TURN_RIGHT:
+			case TURN_LEFT:
+				tick_5++;
+				printf("tick %d\n", tick_5 + 1);
+				if (tick_5 >= 4) {
+					tick_5 = 0;
+					move_forward(ENABLE);
+					on_off_power_up(ON);
+					last_state = MOVE_FORWARD;
+				}
+				break;
+			case MOVE_BACKWARD:
+				if (!r) {
+					move_backward(DISABLE);
+					turn_right(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_RIGHT;
+				}
+				else if (!l && r) {
+					move_backward(DISABLE);
+					turn_left(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_LEFT;
+				}
+				else if (l && r) {
+					move_backward(ENABLE);
+				}
+				break;
+			case POWER_UP_STATE:
+				if (!f) {
+					tick_5++;
+					printf("tick %d\n", tick_5 + 1);
+					if (tick_5 >= 4) {
+						tick_5 = 0;
+						on_off_power_up(ON);
+						last_state = MOVE_FORWARD;
+					}
+					move_forward(ENABLE);
+				}
+				else if (f && !r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					turn_right(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_RIGHT;
+				}
+				else if (f && !l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					turn_left(TRIGGER);
+					tick_5 = 0;
+					printf("tick %d\n", tick_5 + 1);
+					last_state = TURN_LEFT;
+				}
+				else if (f && l && r) {
+					move_forward(DISABLE);
+					on_off_power_up(OFF);
+					move_backward(ENABLE);
+					last_state = MOVE_BACKWARD;
+				}
+				break;
+			default:
+				last_state = MOVE_FORWARD;
+			}
 		}
 		tick = (int)((double)(clock() - tick_start) / CLOCKS_PER_SEC / TICK);
 	}
-}
-
-/* 센서 입력으로 한 tick을 처리하고, 처리 후 상태를 반환한다. */
-state controller_step(state last_state) {
-	char* obstacle_location;
-	char f, l, r;
-	char dust_existence;
-
-	obstacle_location = determine_obstacle_location();
-	f = obstacle_location[0];
-	l = obstacle_location[1];
-	r = obstacle_location[2];
-	free(obstacle_location);
-	dust_existence = determine_dust_existence();
-
-	switch (last_state) {
-	case MOVE_FORWARD:
-		if (dust_existence) {
-			on_off_power_up(POWER_UP_COMMAND);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = POWER_UP_STATE;
-			if (!f) {
-				move_forward(ENABLE);
-			}
-			else if (f && !r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				turn_right(TRIGGER);
-				tick_5 = 0;
-				printf("tick %d\n", tick_5 + 1);
-				last_state = TURN_RIGHT;
-			}
-			else if (f && !l && r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				turn_left(TRIGGER);
-				tick_5 = 0;
-				printf("tick %d\n", tick_5 + 1);
-				last_state = TURN_LEFT;
-			}
-			else if (f && l && r) {
-				move_forward(DISABLE);
-				on_off_power_up(OFF);
-				move_backward(ENABLE);
-				last_state = MOVE_BACKWARD;
-			}
-		}
-		else if (!f) {
-			on_off_power_up(ON);
-			move_forward(ENABLE);
-		}
-		else if (f && !r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			turn_right(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_RIGHT;
-		}
-		else if (f && !l && r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			turn_left(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_LEFT;
-		}
-		else if (f && l && r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			move_backward(ENABLE);
-			last_state = MOVE_BACKWARD;
-		}
-		break;
-	case TURN_RIGHT:
-	case TURN_LEFT:
-		tick_5++;
-		printf("tick %d\n", tick_5 + 1);
-		if (tick_5 >= 4) {
-			tick_5 = 0;
-			move_forward(ENABLE);
-			on_off_power_up(ON);
-			last_state = MOVE_FORWARD;
-		}
-		break;
-	case MOVE_BACKWARD:
-		if (!r) {
-			move_backward(DISABLE);
-			turn_right(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_RIGHT;
-		}
-		else if (!l && r) {
-			move_backward(DISABLE);
-			turn_left(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_LEFT;
-		}
-		else if (l && r) {
-			move_backward(ENABLE);
-		}
-		break;
-	case POWER_UP_STATE:
-		if (!f) {
-			tick_5++;
-			printf("tick %d\n", tick_5 + 1);
-			if (tick_5 >= 4) {
-				tick_5 = 0;
-				on_off_power_up(ON);
-				last_state = MOVE_FORWARD;
-			}
-			move_forward(ENABLE);
-		}
-		else if (f && !r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			turn_right(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_RIGHT;
-		}
-		else if (f && !l && r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			turn_left(TRIGGER);
-			tick_5 = 0;
-			printf("tick %d\n", tick_5 + 1);
-			last_state = TURN_LEFT;
-		}
-		else if (f && l && r) {
-			move_forward(DISABLE);
-			on_off_power_up(OFF);
-			move_backward(ENABLE);
-			last_state = MOVE_BACKWARD;
-		}
-		break;
-	default:
-		last_state = MOVE_FORWARD;
-	}
-
-	return last_state;
 }
 
 char* determine_obstacle_location() {
