@@ -184,66 +184,125 @@ static void run_scenario(const scenario_step* steps, size_t count)
 
 static void test_system_complete_journey(void)
 {
+    /* Sensor values are supplied assumptions, not calculated from terrain or angle.
+     * Forward turns see the front obstacle only at turn ticks 1-2.
+     * Reverse turns see the front obstacle only at tick 3; dust stays 0.
+     * Wall/dust together in forward emits POWER UP, OFF, then the motor command.
+     */
     const scenario_step steps[] = {
         { "[Phase 01] Normal forward cleaning", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
         { "Side obstacles do not block forward", {0,1,1,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
         { "[Phase 02] Obstacle starts left turn, turn tick 1", {1,0,1,0}, LEFT,OFF,2,{CLEANER(OFF),MOTOR(LEFT)} },
-        { "Turn tick 2: opposite-direction obstacle", {1,1,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 3: all obstacles and dust", {1,1,1,1}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 4: all inputs clear", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 5: left completed, original front obstacle is on the right", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 03] Both routes open: right turn has priority", {1,0,0,0}, RIGHT,OFF,2,{CLEANER(OFF),MOTOR(RIGHT)} },
-        { "Turn tick 2: opposite-direction obstacle", {1,0,1,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 3: all obstacles and dust", {1,1,1,1}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 4: dust only", {0,0,0,1}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Turn tick 5: right completed, original front obstacle is on the left", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 04] All routes blocked: backward", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
-        { "Backward ignores front/dust when both sides blocked", {0,1,1,1}, BACKWARD,OFF,1,{MOTOR(BACKWARD)} },
+        { "Turn tick 2: front/right blocked, left clear", {1,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 3: front clears, right blocked and dust detected", {0,0,1,1}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 4: right blocked, left/front clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 5: left completed, right still blocked", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 03] After left turn: normal forward before wall-only reverse", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall blocks all routes after left turn: reverse without dust", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Reverse after left turn: left route opens, turn tick 1", {0,0,1,0}, LEFT,OFF,1,{MOTOR(LEFT)} },
+        { "Recovery left tick 2: right blocked, front/dust clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Recovery left tick 3: front/left blocked, right/dust clear", {1,1,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Recovery left tick 4: all inputs clear", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Recovery left tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 04] After left turn: normal forward before simultaneous wall/dust", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall and dust together after left turn: POWER UP then OFF and backward", {1,1,1,1}, BACKWARD,OFF,3,{CLEANER(POWER_UP_COMMAND),CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Reverse after simultaneous wall/dust: left route opens, turn tick 1", {0,0,1,0}, LEFT,OFF,1,{MOTOR(LEFT)} },
+        { "Simultaneous reverse recovery left tick 2: right blocked, front/dust clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery left tick 3: front/left blocked, right/dust clear", {1,1,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery left tick 4: all inputs clear", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery left tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 05] Both routes open: right turn has priority", {1,0,0,0}, RIGHT,OFF,2,{CLEANER(OFF),MOTOR(RIGHT)} },
+        { "Turn tick 2: front blocked, both sides still open", {1,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 3: front clears, left blocked and dust detected", {0,1,0,1}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 4: left blocked and dust detected, right clear", {0,1,0,1}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Turn tick 5: right completed, left still blocked", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+        { "[Phase 06] All routes blocked: backward", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Keep reversing with both sides blocked, front/dust clear", {0,1,1,0}, BACKWARD,OFF,1,{MOTOR(BACKWARD)} },
         { "Left route opens: start left turn", {0,0,1,0}, LEFT,OFF,1,{MOTOR(LEFT)} },
-        { "Hold left tick 2", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Hold left tick 3", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Hold left tick 4", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Left tick 5: return to forward with the right side blocked", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 05] Reverse again", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
-        { "Right route opens: start right turn", {0,1,0,0}, RIGHT,OFF,1,{MOTOR(RIGHT)} },
-        { "Hold right tick 2", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Hold right tick 3", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Hold right tick 4", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Right tick 5: return to forward with the left side blocked", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 06] Dust starts power-up tick 1", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
+        { "Hold left tick 2: right blocked, front/dust clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold left tick 3: front/left blocked, right/dust clear", {1,1,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold left tick 4: all inputs clear", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Left tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+        { "[Phase 07] All routes blocked: backward before only the right side opens", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Only the right side opens while reversing: start right turn, left blocked", {0,1,0,0}, RIGHT,OFF,1,{MOTOR(RIGHT)} },
+        { "Hold right tick 2: left blocked, front/dust clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold right tick 3: front/right blocked, left/dust clear", {1,0,1,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold right tick 4: all inputs clear", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Right tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 08] All routes blocked: backward before both sides open together", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Both sides open together while reversing: right turn has priority, turn tick 1", {0,0,0,0}, RIGHT,OFF,1,{MOTOR(RIGHT)} },
+        { "Hold priority right tick 2: all inputs clear", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold priority right tick 3: front/left blocked, right/dust clear", {1,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold priority right tick 4: all inputs clear", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Priority right tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 09] Dust starts power-up tick 1", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
         { "Power tick 2: dust clears", {0,0,0,0}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Power tick 3: side inputs change", {0,1,0,0}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Power tick 4: keep power", {0,0,1,0}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Power tick 5: restore normal cleaner", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
-        { "[Phase 07] Persistent dust starts power-up", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
+        { "[Phase 10] Persistent dust starts power-up", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
         { "Persistent dust: power tick 2", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Persistent dust: power tick 3", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Persistent dust: power tick 4", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Persistent dust: normal output at tick 5", {0,0,0,1}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
         { "Next tick starts a new power cycle", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
-        { "[Phase 08] Obstacle interrupts power with left turn", {1,0,1,0}, LEFT,OFF,2,{CLEANER(OFF),MOTOR(LEFT)} },
-        { "New left counter: tick 2", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New left counter: tick 3", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New left counter: tick 4", {0,0,0,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New left counter: tick 5, right side blocked after the turn", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 09] Start power-up before right obstacle", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
+        { "[Phase 11] Obstacle interrupts power with left turn", {1,0,1,0}, LEFT,OFF,2,{CLEANER(OFF),MOTOR(LEFT)} },
+        { "New left counter: tick 2, front/right blocked", {1,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New left counter: tick 3, front clears and right stays blocked", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New left counter: tick 4, right blocked and left clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New left counter: tick 5, right still blocked", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+        { "[Phase 12] Start power-up before right obstacle", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
         { "Advance power to tick 2", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,1,{MOTOR(FORWARD)} },
         { "Obstacle interrupts power with right turn", {1,1,0,0}, RIGHT,OFF,2,{CLEANER(OFF),MOTOR(RIGHT)} },
-        { "New right counter: tick 2", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New right counter: tick 3", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New right counter: tick 4", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "New right counter: tick 5, left side blocked after the turn", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
-        { "[Phase 10] Start power-up before blocked routes", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
+        { "New right counter: tick 2, front/left blocked", {1,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New right counter: tick 3, front clears and left stays blocked", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New right counter: tick 4, left blocked and right clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "New right counter: tick 5, left still blocked", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+        { "[Phase 13] Start power-up before blocked routes", {0,0,0,1}, FORWARD,POWER_UP_COMMAND,2,{CLEANER(POWER_UP_COMMAND),MOTOR(FORWARD)} },
         { "All routes blocked: interrupt power with backward", {1,1,1,0}, BACKWARD,OFF,2,{CLEANER(OFF),MOTOR(BACKWARD)} },
         { "Keep reversing", {0,1,1,0}, BACKWARD,OFF,1,{MOTOR(BACKWARD)} },
         { "Right route opens", {0,1,0,0}, RIGHT,OFF,1,{MOTOR(RIGHT)} },
-        { "Final right tick 2", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Final right tick 3", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Final right tick 4", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
-        { "Final right tick 5: left side blocked after the turn", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+        { "Hold right tick 2 after power interruption: left blocked, front/dust clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold right tick 3 after power interruption: front/right blocked, left/dust clear", {1,0,1,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Hold right tick 4 after power interruption: all inputs clear", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Right tick 5 after power interruption: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 14] Normal forward before simultaneous wall/dust reverse", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall and dust together: POWER UP then OFF and backward", {1,1,1,1}, BACKWARD,OFF,3,{CLEANER(POWER_UP_COMMAND),CLEANER(OFF),MOTOR(BACKWARD)} },
+        { "Simultaneous reverse: right route opens with left blocked, turn tick 1", {0,1,0,0}, RIGHT,OFF,1,{MOTOR(RIGHT)} },
+        { "Simultaneous reverse recovery right tick 2: left blocked, front/dust clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery right tick 3: front/right blocked, left/dust clear", {1,0,1,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery right tick 4: all inputs clear", {0,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous reverse recovery right tick 5: all inputs clear, return to forward", {0,0,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 15] Normal forward before simultaneous wall/dust left turn", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall and dust together: POWER UP then OFF and left, turn tick 1", {1,0,1,1}, LEFT,OFF,3,{CLEANER(POWER_UP_COMMAND),CLEANER(OFF),MOTOR(LEFT)} },
+        { "Simultaneous left tick 2: front/right blocked, dust clear", {1,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous left tick 3: front clears, right stays blocked", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous left tick 4: right blocked, left clear", {0,0,1,0}, LEFT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous left tick 5: right still blocked, return to forward", {0,0,1,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 16] Normal forward before simultaneous wall/dust right turn, left blocked", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall and dust together, left blocked: POWER UP then OFF and right, turn tick 1", {1,1,0,1}, RIGHT,OFF,3,{CLEANER(POWER_UP_COMMAND),CLEANER(OFF),MOTOR(RIGHT)} },
+        { "Simultaneous right tick 2 with left blocked: front/left blocked, dust clear", {1,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous right tick 3 with left blocked: front clears, left stays blocked", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous right tick 4 with left blocked: right clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous right tick 5 with left blocked: return to forward", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
+
+        { "[Phase 17] Normal forward before simultaneous wall/dust right turn, both sides open", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} },
+        { "Wall and dust together, both sides open: POWER UP then OFF and priority right, turn tick 1", {1,0,0,1}, RIGHT,OFF,3,{CLEANER(POWER_UP_COMMAND),CLEANER(OFF),MOTOR(RIGHT)} },
+        { "Simultaneous priority right tick 2: front blocked, both sides open, dust clear", {1,0,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous priority right tick 3: front clears, left blocked", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous priority right tick 4: left blocked, right clear", {0,1,0,0}, RIGHT,OFF,0,{{OUTPUT_MOTOR,0}} },
+        { "Simultaneous priority right tick 5: left still blocked, return to forward", {0,1,0,0}, FORWARD,ON,2,{MOTOR(FORWARD),CLEANER(ON)} },
         { "Verify normal cleaning before scenario end", {0,0,0,0}, FORWARD,ON,2,{CLEANER(ON),MOTOR(FORWARD)} }
     };
-    printf("\nMain-based journey: 10 phases, %u virtual ticks\n", (unsigned int)ARRAY_COUNT(steps));
+    printf("\nMain-based journey: 17 phases, %u virtual ticks\n", (unsigned int)ARRAY_COUNT(steps));
     run_scenario(steps, ARRAY_COUNT(steps));
 }
 
@@ -254,7 +313,7 @@ typedef struct {
 } test_entry;
 
 static const test_entry system_test = {
-    "journey", "Complete journey through all 10 phases", test_system_complete_journey
+    "journey", "Complete journey through all 17 phases", test_system_complete_journey
 };
 
 static int run_cunit_tests(const test_entry* tests, size_t test_count, const char* suite_name)
@@ -364,7 +423,7 @@ int main(void)
 {
     char line[128];
     int result;
-    printf("Running system scenario 1: complete journey through all 10 phases.\n");
+    printf("Running system scenario 1: complete journey through all 17 phases.\n");
     result = run_with_output_file(&system_test);
     printf("\nTest finished. Press Enter to close...");
     fflush(stdout);
