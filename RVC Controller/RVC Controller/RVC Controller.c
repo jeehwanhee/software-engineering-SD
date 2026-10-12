@@ -1,11 +1,7 @@
-#define TICK 1
-#define TRUE 1
-#define FALSE 0
-
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <math.h>
+#include "RVC Controller.h"
 
 clock_t tick_start;
 int tick, tick_5;
@@ -15,52 +11,6 @@ int front_sensor_input = 1;
 int left_sensor_input = 0;
 int right_sensor_input = 1;
 int dust_sensor_input = 0;
-
-typedef enum {
-	DISABLE,
-	ENABLE
-}enable_signal;
-
-typedef enum {
-	NO_TRIGGER,
-	TRIGGER
-}trigger_signal;
-
-typedef enum {
-	FORWARD,
-	LEFT,
-	RIGHT,
-	BACKWARD
-}direction;
-
-typedef enum {
-	OFF,
-	ON,
-	POWER_UP_COMMAND
-}clean;
-
-typedef enum {
-	MOVE_FORWARD,
-	TURN_LEFT,
-	TURN_RIGHT,
-	MOVE_BACKWARD,
-	POWER_UP_STATE
-}state;
-
-void controller(state initial_state);
-char* determine_obstacle_location(void);
-char front_sensor_interface(void);
-char left_sensor_interface(void);
-char right_sensor_interface(void);
-char determine_dust_existence(void);
-char dust_sensor_interface(void);
-void move_forward(enable_signal signal);
-void turn_left(trigger_signal signal);
-void turn_right(trigger_signal signal);
-void move_backward(enable_signal signal);
-void motor_interface(direction motor_command);
-void on_off_power_up(clean cleaner_command);
-void cleaner_interface(clean cleaner_command);
 
 int main(void) {
 	controller(MOVE_FORWARD);
