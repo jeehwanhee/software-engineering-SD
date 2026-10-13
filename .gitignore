@@ -1,0 +1,18 @@
+# Visual Studio
+.vs/
+*.user
+
+# Build output
+x64/
+Debug/
+Release/
+*.obj
+*.exe
+*.ilk
+*.pdb
+*.idb
+*.ipch
+*.log
+*.tlog/
+*.recipe
+*.dt.module.json.command

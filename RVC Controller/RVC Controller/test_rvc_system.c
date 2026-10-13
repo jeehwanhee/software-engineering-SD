@@ -4,6 +4,7 @@
 #include <string.h>
 #include <windows.h>
 #include <CUnit/Basic.h>
+#include <CUnit/Automated.h>
 
 #define main rvc_controller_main
 #include "RVC Controller.c"
@@ -20,9 +21,6 @@ static DWORD WINAPI run_controller(LPVOID arg)
     return 0;
 }
 
-/* controller()를 시작만 해두고 스레드 핸들을 돌려준다.
-   리턴받은 handle을 쥐고 있는 동안 센서값을 자유롭게 바꿔가며 Sleep을 반복하면
-   중간에 상황이 바뀌는 긴 시나리오를 만들 수 있다. */
 static HANDLE begin_run(state s)
 {
     tick = 0;
@@ -34,7 +32,6 @@ static HANDLE begin_run(state s)
     return CreateThread(NULL, 0, run_controller, NULL, 0, NULL);
 }
 
-/* 스레드를 강제로 끝내고, 그동안 찍힌 출력을 output에 담는다. */
 static void end_run(HANDLE thread)
 {
     FILE* f;
@@ -51,24 +48,43 @@ static void end_run(HANDLE thread)
     fclose(f);
 }
 
-static void run_for_ticks(state s, int ticks)
+/* 테스트 이름의 [F L R D, F L R D, ...] 그대로, 한 묶음(bracket)을 1tick씩 순서대로 넣는다. */
+typedef struct {
+    int f, l, r, d;
+} input_t;
+
+static void run_sequence(state start, const input_t* seq, int count)
 {
-    HANDLE thread = begin_run(s);
-    Sleep(ticks * 1000 + 500);
+    HANDLE thread;
+    int i;
+
+    front_sensor_input = seq[0].f;
+    left_sensor_input = seq[0].l;
+    right_sensor_input = seq[0].r;
+    dust_sensor_input = seq[0].d;
+
+    thread = begin_run(start);
+
+    for (i = 0; i < count; i++) {
+        if (i > 0) {
+            front_sensor_input = seq[i].f;
+            left_sensor_input = seq[i].l;
+            right_sensor_input = seq[i].r;
+            dust_sensor_input = seq[i].d;
+        }
+        Sleep(1000);
+    }
+    Sleep(500); /* 여유 */
+
     end_run(thread);
 }
 
-/* ===================== 앞으로 / 뒤로 / 왼쪽 / 오른쪽 ===================== */
+/* ===================== [F L R D] 단일 입력: 전진 중 8가지 조합 전수 ===================== */
 
-/* 앞으로: 장애물 없으면 전진을 유지한다. */
-static void test_forward(void)
+static void test_01(void)
 {
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
-
-    run_for_ticks(MOVE_FORWARD, 2);
+    input_t seq[] = { {0,0,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
     CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
@@ -76,306 +92,271 @@ static void test_forward(void)
     CU_ASSERT_PTR_NULL(strstr(output, "BACKWARD"));
 }
 
-/* 뒤로: 사방이 막히면 후진을 시작한다. */
-static void test_forward_to_backward(void)
+static void test_02(void)
 {
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
+    input_t seq[] = { {0,1,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
 
-    run_for_ticks(MOVE_FORWARD, 1);
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
+    CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "BACKWARD"));
+}
+
+static void test_03(void)
+{
+    input_t seq[] = { {0,0,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
+    CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "BACKWARD"));
+}
+
+static void test_04(void)
+{
+    input_t seq[] = { {0,1,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
+    CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "BACKWARD"));
+}
+
+static void test_05(void)
+{
+    input_t seq[] = { {1,0,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
+}
+
+static void test_06(void)
+{
+    input_t seq[] = { {1,0,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "RIGHT"));
+}
+
+static void test_07(void)
+{
+    input_t seq[] = { {1,1,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
+}
+
+static void test_08(void)
+{
+    input_t seq[] = { {1,1,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 1);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
 }
 
-/* 왼쪽: 전방이 막히고 왼쪽이 비어있으면 좌회전을 시작한다. */
-static void test_forward_to_left(void)
+/* ===================== 후진 진입 이후 ===================== */
+
+static void test_09(void)
 {
-    front_sensor_input = 1;
-    left_sensor_input = 0;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
+    input_t seq[] = { {1,1,1,0}, {0,0,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 2);
 
-    run_for_ticks(MOVE_FORWARD, 1);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
 }
 
-/* 오른쪽: 전방이 막히고 오른쪽이 비어있으면 우회전을 시작한다. */
-static void test_forward_to_right(void)
+static void test_10(void)
 {
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
+    input_t seq[] = { {1,1,1,0}, {0,1,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 2);
 
-    run_for_ticks(MOVE_FORWARD, 1);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
 }
 
-/* ===================== 먼지 + 앞으로 ===================== */
-
-/* 먼지 + 앞으로: 전방이 비어있는데 먼지가 감지되면 파워업으로 들어간다. */
-static void test_dust_to_powerup(void)
+static void test_11(void)
 {
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 1;
-
-    run_for_ticks(MOVE_FORWARD, 1);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
-}
-
-/* ===================== 뒤로이동 + 왼쪽 / 오른쪽 / 뒤로 ===================== */
-
-/* 뒤로이동 + 왼쪽: 후진 중 왼쪽이 비어있으면 좌회전으로 바뀐다. */
-static void test_backward_to_left(void)
-{
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
-
-    run_for_ticks(MOVE_BACKWARD, 1);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
-}
-
-/* 뒤로이동 + 오른쪽: 후진 중 오른쪽이 비어있으면 우회전으로 바뀐다. */
-static void test_backward_to_right(void)
-{
-    front_sensor_input = 0;
-    left_sensor_input = 1;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
-
-    run_for_ticks(MOVE_BACKWARD, 1);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
-}
-
-/* 뒤로이동 + 뒤로: 양쪽 다 막혀있으면 후진을 유지한다. */
-static void test_backward_remain(void)
-{
-    front_sensor_input = 0;
-    left_sensor_input = 1;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
-
-    run_for_ticks(MOVE_BACKWARD, 2);
+    input_t seq[] = { {1,1,1,0}, {0,1,1,0}, {0,1,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 3);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
     CU_ASSERT_PTR_NULL(strstr(output, "LEFT"));
     CU_ASSERT_PTR_NULL(strstr(output, "RIGHT"));
 }
 
-/* ===================== 앞으로 + (먼지 + 앞으로) ===================== */
-
-/* 앞으로 + (먼지 + 앞으로): 파워업이 4tick을 다 채우면 전진으로 복귀한다. */
-static void test_powerup_to_forward(void)
+static void test_12(void)
 {
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 1;
+    input_t seq[] = {
+        {1,1,1,0}, {0,1,1,0}, {0,0,1,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 8);
 
-    run_for_ticks(MOVE_FORWARD, 5);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
 }
 
-/* ===================== 왼쪽 + 앞으로 / 오른쪽 + 앞으로 ===================== */
-
-/* 왼쪽 + 앞으로: 좌회전이 4tick을 다 채우면 전진으로 복귀한다. */
-static void test_left_to_forward(void)
+static void test_13(void)
 {
-    front_sensor_input = 1;
-    left_sensor_input = 0;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
+    input_t seq[] = {
+        {1,1,1,0}, {0,1,1,0}, {0,1,0,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 8);
 
-    run_for_ticks(MOVE_FORWARD, 5);
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
+}
+
+/* ===================== 회전 완료 후 전진 ===================== */
+
+static void test_14(void)
+{
+    input_t seq[] = {
+        {1,0,1,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 5);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
 }
 
-/* 오른쪽 + 앞으로: 우회전이 4tick을 다 채우면 전진으로 복귀한다. */
-static void test_right_to_forward(void)
+static void test_15(void)
 {
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
-
-    run_for_ticks(MOVE_FORWARD, 5);
+    input_t seq[] = {
+        {1,1,0,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 5);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
 }
 
-/* ===================== 앞으로 + (먼지 + 앞으로) + 먼지가 끝나기 전 ... ===================== */
+/* ===================== 파워업 ===================== */
 
-/* 먼지가 끝나기 전 왼쪽: 파워업 4tick이 끝나기 전에 장애물을 만나면
-   끝까지 안 기다리고 바로 좌회전으로 빠진다 (ON이 찍히면 안 된다). */
-static void test_powerup_interrupted_left(void)
+static void test_16(void)
 {
-    HANDLE thread;
-
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 1;
-
-    thread = begin_run(MOVE_FORWARD);
-    Sleep(1500); /* 파워업 상태에 머무는 중, 아직 4tick 안 됨 */
-
-    front_sensor_input = 1;
-    left_sensor_input = 0;
-    right_sensor_input = 1;
-    Sleep(1000);
-
-    end_run(thread);
+    input_t seq[] = { {0,0,0,1} };
+    run_sequence(MOVE_FORWARD, seq, 1);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
+}
+
+static void test_17(void)
+{
+    input_t seq[] = {
+        {0,0,0,0}, {0,0,0,1},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 6);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+}
+
+static void test_18(void)
+{
+    input_t seq[] = { {0,0,0,1}, {0,0,0,0}, {1,0,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 3);
+
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
     CU_ASSERT_PTR_NULL(strstr(output, "ON"));
 }
 
-/* 먼지가 끝나기 전 오른쪽: 위와 동일하되 우회전으로 빠지는 경우. */
-static void test_powerup_interrupted_right(void)
+static void test_19(void)
 {
-    HANDLE thread;
-
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 1;
-
-    thread = begin_run(MOVE_FORWARD);
-    Sleep(1500);
-
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 0;
-    Sleep(1000);
-
-    end_run(thread);
+    input_t seq[] = { {0,0,0,1}, {0,0,0,0}, {1,1,0,0} };
+    run_sequence(MOVE_FORWARD, seq, 3);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
     CU_ASSERT_PTR_NULL(strstr(output, "ON"));
 }
 
-/* 먼지가 끝나기 전 뒤로: 위와 동일하되 후진으로 빠지는 경우. */
-static void test_powerup_interrupted_backward(void)
+static void test_20(void)
 {
-    HANDLE thread;
+    input_t seq[] = { {0,0,0,1}, {0,0,0,0}, {1,1,1,0} };
+    run_sequence(MOVE_FORWARD, seq, 3);
 
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 1;
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
+    CU_ASSERT_PTR_NULL(strstr(output, "ON"));
+}
 
-    thread = begin_run(MOVE_FORWARD);
-    Sleep(1500);
+/* 먼지와 장애물이 같은 tick에 동시에 감지되는 경우.
+   R=0이면 L값과 무관하게 즉시 우회전 분기가 먼저 걸리므로,
+   좌회전을 보려면 R=1(1011)이어야 한다. (원래 1001은 실제로 우회전이 됨) */
+static void test_21(void)
+{
+    input_t seq[] = { {0,0,0,0}, {1,0,1,1} };
+    run_sequence(MOVE_FORWARD, seq, 2);
 
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 1;
-    Sleep(1000);
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
+}
 
-    end_run(thread);
+static void test_22(void)
+{
+    input_t seq[] = { {0,0,0,0}, {1,1,1,1} };
+    run_sequence(MOVE_FORWARD, seq, 2);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "OFF"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
-    CU_ASSERT_PTR_NULL(strstr(output, "ON"));
 }
 
 /* ===================== 긴 시나리오 ===================== */
 
-/* 왼쪽 + 앞으로 + 뒤로: 좌회전 완주 -> 전진 -> 장애물이 사방을 막아 후진까지
-   하나의 실행으로 이어서 확인한다. */
-static void test_left_forward_backward(void)
+static void test_23(void)
 {
-    HANDLE thread;
-
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
-
-    thread = begin_run(MOVE_FORWARD);
-    Sleep(2000); /* 장애물 없이 2tick 전진 */
-
-    front_sensor_input = 1;
-    right_sensor_input = 1; /* 좌측이 비어있어서 좌회전 시작 */
-    Sleep(5000); /* 좌회전 4tick이 끝나고 다시 전진으로 돌아올 때까지 */
-
-    front_sensor_input = 0; /* 장애물이 사라짐 */
-    Sleep(2000); /* 다시 전진을 유지하는지 확인 */
-
-    end_run(thread);
+    input_t seq[] = {
+        {0,0,0,0}, {1,0,1,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+        {1,1,1,0}
+    };
+    run_sequence(MOVE_FORWARD, seq, 8);
 
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
-}
-
-/* 앞으로 + (먼지 + 앞으로) + (5tick 뒤 먼지 + 뒤로) + 왼쪽 + 앞으로 + 먼지:
-   전진 -> 파워업 완주 -> 후진 -> 좌회전 -> 전진 -> 파워업 재진입까지
-   전부 한 번의 실행으로 이어서, 상태가 여러 번 바뀌어도 꼬이지 않는지 확인. */
-static void test_full_cycle(void)
-{
-    HANDLE thread;
-
-    front_sensor_input = 0;
-    left_sensor_input = 0;
-    right_sensor_input = 0;
-    dust_sensor_input = 0;
-
-    thread = begin_run(MOVE_FORWARD);
-    Sleep(1000); /* 장애물 없이 잠깐 전진 */
-
-    dust_sensor_input = 1;
-    Sleep(5500); /* 파워업 진입 -> 5tick 다 채우고 전진 복귀까지 */
-
-    front_sensor_input = 1;
-    left_sensor_input = 1;
-    right_sensor_input = 1;
-    dust_sensor_input = 1;
-    Sleep(1000); /* 사방이 막히고 먼지도 감지돼서 바로 후진 */
-
-    front_sensor_input = 0; /* 나중에 전진으로 돌아왔을 때를 대비해 미리 치워둠 */
-    left_sensor_input = 0;
-    right_sensor_input = 1;
-    dust_sensor_input = 0;
-    Sleep(1000); /* 왼쪽이 열려서 좌회전 시작 */
-
-    Sleep(5000); /* 좌회전 4tick 끝나고 전진 복귀까지 */
-
-    dust_sensor_input = 1;
-    Sleep(1500); /* 먼지 재감지 -> 파워업 재진입 */
-
-    end_run(thread);
-
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
-    CU_ASSERT_PTR_NOT_NULL(strstr(output, "LEFT"));
+}
+
+static void test_24(void)
+{
+    input_t seq[] = {
+        {0,0,0,1}, {1,1,1,0}, {1,1,1,0}, {1,1,0,0},
+        {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0},
+        {0,0,0,1}, {1,1,1,1}
+    };
+    run_sequence(MOVE_FORWARD, seq, 11);
+
     CU_ASSERT_PTR_NOT_NULL(strstr(output, "POWER UP"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "BACKWARD"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "RIGHT"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "ON"));
+    CU_ASSERT_PTR_NOT_NULL(strstr(output, "FORWARD"));
 }
 
 int main(void)
@@ -385,32 +366,42 @@ int main(void)
     CU_initialize_registry();
     suite = CU_add_suite("RVC Controller System Test", NULL, NULL);
 
-    CU_add_test(suite, "앞으로", test_forward);
-    CU_add_test(suite, "뒤로", test_forward_to_backward);
-    CU_add_test(suite, "왼쪽", test_forward_to_left);
-    CU_add_test(suite, "오른쪽", test_forward_to_right);
+    CU_add_test(suite, "[0000] 전진", test_01);
+    CU_add_test(suite, "[0100] 왼쪽 장애물 -> 전진", test_02);
+    CU_add_test(suite, "[0010] 오른쪽 장애물 -> 전진", test_03);
+    CU_add_test(suite, "[0110] 양쪽 장애물 -> 전진", test_04);
+    CU_add_test(suite, "[1000] 전방 장애물 -> 우회전", test_05);
+    CU_add_test(suite, "[1010] 오른쪽 장애물 -> 좌회전", test_06);
+    CU_add_test(suite, "[1100] 왼쪽 장애물 -> 우회전", test_07);
+    CU_add_test(suite, "[1110] 사방 막힘 -> 후진", test_08);
 
-    CU_add_test(suite, "먼지 + 앞으로", test_dust_to_powerup);
+    CU_add_test(suite, "[1110, 0010] 후진 후 좌측 열림 -> 좌회전", test_09);
+    CU_add_test(suite, "[1110, 0100] 후진 후 우측 열림 -> 우회전", test_10);
+    CU_add_test(suite, "[1110, 0110, 0110] 후진 후 양쪽 막힘 -> 후진 유지", test_11);
+    CU_add_test(suite, "[1110, 0110, 0010, 0000, 0000, 0000, 0000, 0000] 후진 유지 후 좌회전", test_12);
+    CU_add_test(suite, "[1110, 0110, 0100, 0000, 0000, 0000, 0000, 0000] 후진 유지 후 우회전", test_13);
 
-    CU_add_test(suite, "뒤로이동 + 왼쪽", test_backward_to_left);
-    CU_add_test(suite, "뒤로이동 + 오른쪽", test_backward_to_right);
-    CU_add_test(suite, "뒤로이동 + 뒤로", test_backward_remain);
+    CU_add_test(suite, "[1010, 0000, 0000, 0000, 0000] 좌회전 후 전진", test_14);
+    CU_add_test(suite, "[1100, 0000, 0000, 0000, 0000] 우회전 후 전진", test_15);
 
-    CU_add_test(suite, "앞으로 + (먼지 + 앞으로)", test_powerup_to_forward);
+    CU_add_test(suite, "[0001] 먼지 감지 -> 파워업", test_16);
+    CU_add_test(suite, "[0000, 0001, 0000, 0000, 0000, 0000] 파워업 이후 ON", test_17);
+    CU_add_test(suite, "[0001, 0000, 1010] 파워업 중 좌회전", test_18);
+    CU_add_test(suite, "[0001, 0000, 1100] 파워업 중 우회전", test_19);
+    CU_add_test(suite, "[0001, 0000, 1110] 파워업 중 후진", test_20);
+    CU_add_test(suite, "[0000, 1011] 먼지, 벽 동시 감지 -> 파워업 후 바로 OFF, 좌회전", test_21);
+    CU_add_test(suite, "[0000, 1111] 먼지, 벽 동시 감지 -> 파워업 후 바로 OFF, 후진", test_22);
 
-    CU_add_test(suite, "왼쪽 + 앞으로", test_left_to_forward);
-    CU_add_test(suite, "오른쪽 + 앞으로", test_right_to_forward);
+    CU_add_test(suite, "[0000, 1010, 0000, 0000, 0000, 0000, 0000, 1110] 전진 -> 좌회전 -> 전진 -> 후진", test_23);
+    CU_add_test(suite, "[0001, 1110, 1110, 1100, 0000, 0000, 0000, 0000, 0000, 0001, 1111] 전진 -> 후진 -> 우회전 -> 전진 -> 파워업 -> 후진", test_24);
 
-    CU_add_test(suite, "먼지가 끝나기 전 왼쪽", test_powerup_interrupted_left);
-    CU_add_test(suite, "먼지가 끝나기 전 오른쪽", test_powerup_interrupted_right);
-    CU_add_test(suite, "먼지가 끝나기 전 뒤로", test_powerup_interrupted_backward);
+    printf("테스트 실행 중... (완료까지 1~2분 걸릴 수 있습니다)\n");
 
-    CU_add_test(suite, "왼쪽 + 앞으로 + 뒤로", test_left_forward_backward);
-    CU_add_test(suite, "앞으로+(먼지+앞으로)+(5tick뒤 먼지+뒤로)+왼쪽+앞으로+먼지", test_full_cycle);
-
-    CU_basic_set_mode(CU_BRM_VERBOSE);
-    CU_basic_run_tests();
+    CU_set_output_filename("rvc_system_test_report");
+    CU_automated_run_tests();
     CU_cleanup_registry();
+
+    printf("완료. rvc_system_test_report-Results.xml 파일을 확인하세요.\n");
 
     return 0;
 }

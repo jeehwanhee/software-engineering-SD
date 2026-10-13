@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>RVC Controller System Test Report</title>
+<style>
+  body { font-family: "Malgun Gothic", sans-serif; margin: 40px; color: #222; }
+  h1 { font-size: 20px; }
+  .summary { margin: 16px 0; padding: 12px 16px; background: #f4f8f4; border: 1px solid #cde; border-radius: 6px; display: inline-block; }
+  .summary b { color: #2a7a2a; }
+  table { border-collapse: collapse; width: 100%; max-width: 820px; margin-top: 16px; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; font-size: 14px; }
+  th { background: #333; color: #fff; }
+  tr:nth-child(even) { background: #fafafa; }
+  .pass { color: #1a7a1a; font-weight: bold; }
+  .num { color: #888; width: 2.5em; }
+</style>
+</head>
+<body>
+<h1>RVC Controller System Test Report</h1>
+<div class="summary">
+  Suite: <b>RVC Controller System Test</b><br>
+  Test Cases: <b>24 / 24 PASS</b> &nbsp;|&nbsp; Assertions: <b>76 / 76 PASS</b> &nbsp;|&nbsp; Failed: <b>0</b>
+</div>
+<p style="color:#666; font-size:13px;">테스트 이름 앞 대괄호는 입력 순서대로 <b>[F L R D]</b> (0=미감지, 1=감지)이고, 쉼표로 이어지면 각 묶음을 1tick씩 순서대로 입력했다는 뜻입니다. 모든 테스트는 항상 MOVE_FORWARD(실제 main()과 동일한 시작 상태)에서 출발합니다.</p>
+<table>
+<tr><th class="num">#</th><th>Test Case</th><th>Result</th></tr>
+<tr><td class="num">1</td><td>[0000] 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">2</td><td>[0100] 왼쪽 장애물 -&gt; 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">3</td><td>[0010] 오른쪽 장애물 -&gt; 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">4</td><td>[0110] 양쪽 장애물 -&gt; 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">5</td><td>[1000] 전방 장애물 -&gt; 우회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">6</td><td>[1010] 오른쪽 장애물 -&gt; 좌회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">7</td><td>[1100] 왼쪽 장애물 -&gt; 우회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">8</td><td>[1110] 사방 막힘 -&gt; 후진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">9</td><td>[1110, 0010] 후진 후 좌측 열림 -&gt; 좌회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">10</td><td>[1110, 0100] 후진 후 우측 열림 -&gt; 우회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">11</td><td>[1110, 0110, 0110] 후진 후 양쪽 막힘 -&gt; 후진 유지</td><td class="pass">PASS</td></tr>
+<tr><td class="num">12</td><td>[1110, 0110, 0010, 0000, 0000, 0000, 0000, 0000] 후진 유지 후 좌회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">13</td><td>[1110, 0110, 0100, 0000, 0000, 0000, 0000, 0000] 후진 유지 후 우회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">14</td><td>[1010, 0000, 0000, 0000, 0000] 좌회전 후 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">15</td><td>[1100, 0000, 0000, 0000, 0000] 우회전 후 전진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">16</td><td>[0001] 먼지 감지 -&gt; 파워업</td><td class="pass">PASS</td></tr>
+<tr><td class="num">17</td><td>[0000, 0001, 0000, 0000, 0000, 0000] 파워업 이후 ON</td><td class="pass">PASS</td></tr>
+<tr><td class="num">18</td><td>[0001, 0000, 1010] 파워업 중 좌회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">19</td><td>[0001, 0000, 1100] 파워업 중 우회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">20</td><td>[0001, 0000, 1110] 파워업 중 후진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">21</td><td>[0000, 1011] 먼지, 벽 동시 감지 -&gt; 파워업 후 바로 OFF, 좌회전</td><td class="pass">PASS</td></tr>
+<tr><td class="num">22</td><td>[0000, 1111] 먼지, 벽 동시 감지 -&gt; 파워업 후 바로 OFF, 후진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">23</td><td>[0000, 1010, 0000, 0000, 0000, 0000, 0000, 1110] 전진 -&gt; 좌회전 -&gt; 전진 -&gt; 후진</td><td class="pass">PASS</td></tr>
+<tr><td class="num">24</td><td>[0001, 1110, 1110, 1100, 0000, 0000, 0000, 0000, 0000, 0001, 1111] 전진 -&gt; 후진 -&gt; 우회전 -&gt; 전진 -&gt; 파워업 -&gt; 후진</td><td class="pass">PASS</td></tr>
+</table>
+<p style="color:#999; font-size:12px; margin-top:24px;">Generated from CUnit Automated report (rvc_system_test_report-Results.xml), 2026-10-13.</p>
+</body>
+</html>
