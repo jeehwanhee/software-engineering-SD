@@ -18,5 +18,16 @@
     <ClCompile Include="RVC Controller.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="test_rvc_controller.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="test_rvc_system.c">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="RVC Controller.h">
+      <Filter>소스 파일</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

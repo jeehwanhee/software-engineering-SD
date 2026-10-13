@@ -70,6 +70,12 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
+    <LocalDebuggerCommandArguments />
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -143,9 +149,39 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="RVC Controller.c" />
+    <ClCompile Include="RVC Controller.c">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test_rvc_controller.c">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="test_rvc_system.c" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="RVC Controller.h" />
+  </ItemGroup>
+  <PropertyGroup>
+    <CUnitRoot Condition="'$(CUnitRoot)'=='' and '$(Platform)'=='x64'">$(UserProfile)\vcpkg\installed\x64-windows</CUnitRoot>
+    <CUnitRoot Condition="'$(CUnitRoot)'=='' and '$(Platform)'=='Win32'">$(UserProfile)\vcpkg\installed\x86-windows</CUnitRoot>
+    <CUnitLibraryDir>$(CUnitRoot)\lib</CUnitLibraryDir>
+    <CUnitRuntimeDir>$(CUnitRoot)\bin</CUnitRuntimeDir>
+    <CUnitLibraryDir Condition="'$(Configuration)'=='Debug'">$(CUnitRoot)\debug\lib</CUnitLibraryDir>
+    <CUnitRuntimeDir Condition="'$(Configuration)'=='Debug'">$(CUnitRoot)\debug\bin</CUnitRuntimeDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(CUnitRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(CUnitLibraryDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cunit.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyCUnitRuntime" AfterTargets="Build">
+    <Copy SourceFiles="$(CUnitRuntimeDir)\cunit.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

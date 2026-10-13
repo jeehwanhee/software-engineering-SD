@@ -4,25 +4,62 @@
 <meta charset="utf-8">
 <title>RVC Controller System Test Report</title>
 <style>
-  body { font-family: "Malgun Gothic", sans-serif; margin: 40px; color: #222; }
-  h1 { font-size: 20px; }
+  body { font-family: "Malgun Gothic", sans-serif; margin: 40px auto; max-width: 900px; color: #222; line-height: 1.6; }
+  h1 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 17px; margin-top: 32px; border-left: 4px solid #2a7a2a; padding-left: 10px; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
   .summary { margin: 16px 0; padding: 12px 16px; background: #f4f8f4; border: 1px solid #cde; border-radius: 6px; display: inline-block; }
   .summary b { color: #2a7a2a; }
-  table { border-collapse: collapse; width: 100%; max-width: 820px; margin-top: 16px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; }
   th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; font-size: 14px; }
   th { background: #333; color: #fff; }
   tr:nth-child(even) { background: #fafafa; }
   .pass { color: #1a7a1a; font-weight: bold; }
   .num { color: #888; width: 2.5em; }
+  code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  .note { color: #666; font-size: 13px; }
+  ul { padding-left: 22px; }
 </style>
 </head>
 <body>
+
 <h1>RVC Controller System Test Report</h1>
+<p class="meta">작성일: 2026-10-13 &nbsp;|&nbsp; 대상: RVC Controller.c &nbsp;|&nbsp; 테스트 파일: test_rvc_system.c</p>
+
+<h2>1. 테스트 목적</h2>
+<p>RVC(Robot Vacuum Cleaner) Controller의 FSM(Finite State Machine) 로직이 설계 스펙(DFD/FSM 다이어그램)대로 동작하는지, 시스템 수준(System Testing)에서 검증한다.</p>
+
+<h2>2. 테스트 프레임워크 및 환경</h2>
+<ul>
+  <li>프레임워크: <b>CUnit 2.1-3</b> (vcpkg로 설치, Automated 인터페이스 사용)</li>
+  <li>빌드: Visual Studio 2022, MSVC, <code>/utf-8</code> 옵션 적용</li>
+  <li>대상 플랫폼: x64 / Debug</li>
+  <li>산출물: <code>rvc_system_test_report-Results.xml</code> (CUnit이 직접 생성하는 공식 결과 파일), 본 문서는 그 결과를 사람이 보기 좋게 정리한 리포트</li>
+</ul>
+
+<h2>3. 테스트 방법론 — Unit Test가 아닌 System Test인 이유</h2>
+<p>이 프로젝트는 두 종류의 테스트 파일을 가지고 있다.</p>
+<ul>
+  <li><code>test_rvc_controller.c</code> — <b>유닛 테스트</b>. 내부 함수(<code>controller_step()</code>)를 직접 호출해서 한 tick의 상태 전이 로직만 떼어내 검증한다. (현재는 <code>controller_step()</code>이 <code>controller()</code> 내부로 통합되면서 더 이상 컴파일되지 않아 미사용 상태)</li>
+  <li><code>test_rvc_system.c</code> — <b>시스템 테스트</b>. 아래 방식으로, 내부 구현을 전혀 모르는 상태에서 외부에서 관찰 가능한 입출력만으로 검증한다.</li>
+</ul>
+<p>시스템 테스트로 분류하는 근거:</p>
+<ol>
+  <li><b>실제 진입점을 그대로 사용한다.</b> 내부 함수를 직접 부르지 않고, <code>main()</code>이 실제로 호출하는 것과 동일한 <code>controller(initial_state)</code>를 그대로 실행한다.</li>
+  <li><b>실시간 tick 타이밍을 그대로 사용한다.</b> <code>controller()</code>는 <code>clock()</code> 기반으로 약 1초에 한 번씩 판단하는 <code>while(1)</code> 무한루프다. 이 루프를 건너뛰지 않고, 별도 스레드로 실제 실행시킨 뒤 일정 시간 기다렸다가 종료시키는 방식으로 테스트한다 (<code>begin_run</code> / <code>end_run</code>).</li>
+  <li><b>블랙박스 검증.</b> 내부 상태 변수(<code>last_state</code>, <code>tick_5</code> 등)를 직접 읽지 않고, 시스템이 실제로 출력하는 모터/청소기 명령(<code>FORWARD</code>, <code>LEFT</code>, <code>RIGHT</code>, <code>BACKWARD</code>, <code>ON</code>, <code>OFF</code>, <code>POWER UP</code>)만으로 동작을 판정한다.</li>
+  <li><b>센서 입력도 공식 경로로 주입한다.</b> 센서값은 <code>front_sensor_input</code> 등 전역 변수를 통해 주입하는데, 이는 소스에 "테스트에서는 실행 전에 센서 입력값을 바꿀 수 있다"라고 명시된 공식 테스트 인터페이스다.</li>
+</ol>
+
+<h2>4. 테스트 케이스 설계</h2>
+<p>테스트 이름의 <code>[F L R D]</code>는 Front/Left/Right(장애물) · Dust(먼지) 센서 입력값이다 (0=미감지, 1=감지). 쉼표로 여러 개가 이어지면, 각 묶음을 1tick씩 순서대로 입력했다는 뜻이며, 실행 도중 센서값이 바뀌는 시나리오를 나타낸다. 모든 테스트는 항상 <code>MOVE_FORWARD</code>(실제 <code>main()</code>과 동일한 시작 상태)에서 출발한다.</p>
+<p class="note">설계 원칙: ① 전진 중 F/L/R 8가지 조합 전수 테스트, ② 후진 진입 후의 좌/우회전·유지, ③ 회전/파워업이 4tick을 다 채우고 정상 복귀하는 경우, ④ 회전/파워업이 끝나기 전에 중단되는 경우, ⑤ 여러 상태를 길게 이어 붙인 종합 시나리오.</p>
+
+<h2>5. 테스트 결과</h2>
 <div class="summary">
   Suite: <b>RVC Controller System Test</b><br>
   Test Cases: <b>24 / 24 PASS</b> &nbsp;|&nbsp; Assertions: <b>76 / 76 PASS</b> &nbsp;|&nbsp; Failed: <b>0</b>
 </div>
-<p style="color:#666; font-size:13px;">테스트 이름 앞 대괄호는 입력 순서대로 <b>[F L R D]</b> (0=미감지, 1=감지)이고, 쉼표로 이어지면 각 묶음을 1tick씩 순서대로 입력했다는 뜻입니다. 모든 테스트는 항상 MOVE_FORWARD(실제 main()과 동일한 시작 상태)에서 출발합니다.</p>
 <table>
 <tr><th class="num">#</th><th>Test Case</th><th>Result</th></tr>
 <tr><td class="num">1</td><td>[0000] 전진</td><td class="pass">PASS</td></tr>
@@ -50,6 +87,10 @@
 <tr><td class="num">23</td><td>[0000, 1010, 0000, 0000, 0000, 0000, 0000, 1110] 전진 -&gt; 좌회전 -&gt; 전진 -&gt; 후진</td><td class="pass">PASS</td></tr>
 <tr><td class="num">24</td><td>[0001, 1110, 1110, 1100, 0000, 0000, 0000, 0000, 0000, 0001, 1111] 전진 -&gt; 후진 -&gt; 우회전 -&gt; 전진 -&gt; 파워업 -&gt; 후진</td><td class="pass">PASS</td></tr>
 </table>
-<p style="color:#999; font-size:12px; margin-top:24px;">Generated from CUnit Automated report (rvc_system_test_report-Results.xml), 2026-10-13.</p>
+
+<h2>6. 결론</h2>
+<p>전체 24개 테스트 케이스, 76개 assertion이 모두 통과했다. FSM의 5개 상태(전진·좌회전·우회전·후진·파워업) 각각의 진입/유지/완료/중단 조건이 설계와 일치하게 동작함을 시스템 수준에서 확인했다.</p>
+
+<p class="note">Generated from CUnit Automated report (rvc_system_test_report-Results.xml), 2026-10-13.</p>
 </body>
 </html>
